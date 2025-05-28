@@ -1,5 +1,5 @@
-from loguru import logger
 import os
+from loguru import logger
 
 log_path = "logs"
 os.makedirs(log_path, exist_ok=True)
