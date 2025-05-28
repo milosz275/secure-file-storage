@@ -14,3 +14,9 @@ pytest
 flask
 python-dotenv
 gunicorn
+
+# Docs
+mkdocs
+mkdocstrings
+mkdocstrings-python
+mkdocs-material

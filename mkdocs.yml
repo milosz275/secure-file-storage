@@ -1,0 +1,19 @@
+site_name: Secure File Storage
+theme:
+  name: material
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+
+nav:
+  - Main page: index.md
+  - Documentation: reference.md
+
+markdown_extensions:
+  - pymdownx.snippets
