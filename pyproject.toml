@@ -12,7 +12,7 @@ authors = [
 ]
 description = "Secure File Storage is a secure, encrypted file storage solution developed in Python. It combines strong encryption, modular architecture, logging and basic access control."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

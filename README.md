@@ -1,13 +1,15 @@
 # Secure File Storage
 
-[![Build](https://github.com/milosz275/secure-file-storage/actions/workflows/ci.yml/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/milosz275/secure-file-storage/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/github-code-scanning/codeql)
+[![CI](https://github.com/milosz275/secure-file-storage/actions/workflows/ci.yml/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/ci.yml)
+[![Build and Push to GitHub Container Registry](https://github.com/milosz275/secure-file-storage/actions/workflows/docker-github-publish.yml/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/docker-github-publish.yml)
+[![Build and Push to Docker Hub](https://github.com/milosz275/secure-file-storage/actions/workflows/dockerhub-publish.yml/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/dockerhub-publish.yml)
+[![CodeQL Advanced](https://github.com/milosz275/secure-file-storage/actions/workflows/codeql.yml/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/codeql.yml)
 
 Secure File Storage is a secure, encrypted file storage solution developed in Python. It combines strong encryption, modular architecture, logging and basic access control.
 
 - [Github](https://github.com/milosz275/secure-file-storage)
 - [PyPi](https://pypi.org/project/secure-file-storage-milosz275)
-- [Docker](https://hub.docker.com/repository/docker/mlsh/secure-file-storage/general)
+- [Dockerhub](https://hub.docker.com/repository/docker/mlsh/secure-file-storage/general)
 
 ## Features
 
