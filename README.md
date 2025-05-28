@@ -1,6 +1,6 @@
 # Secure File Storage
 
-[![Build](https://github.com/milosz275/secure-file-storage/actions/workflows/python-app.yml/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/python-app.yml)
+[![Build](https://github.com/milosz275/secure-file-storage/actions/workflows/ci.yml/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/milosz275/secure-file-storage/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/github-code-scanning/codeql)
 
 Secure File Storage is a secure, encrypted file storage solution developed in Python. It combines strong encryption, modular architecture, logging and basic access control.

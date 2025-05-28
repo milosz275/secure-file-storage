@@ -1,5 +1,5 @@
-from secure_file_storage.src import auth
 import sqlite3
+from secure_file_storage.src import auth
 
 
 def remove_testuser():
