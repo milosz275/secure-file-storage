@@ -13,3 +13,4 @@ loguru
 pytest
 flask
 python-dotenv
+gunicorn
