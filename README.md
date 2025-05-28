@@ -49,5 +49,6 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 pip install --upgrade pip
+python3 secure_file_storage/src/setup_env.py
 python3 -m secure_file_storage.main
 ```
