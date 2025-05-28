@@ -1,10 +1,11 @@
 """Main module for Secure File Storage application"""
 
 import os
+import sys
 import sqlite3
 import uuid
 
-from flask import Flask, request, render_template_string, send_file, redirect, url_for, flash
+from flask import Flask, request, render_template_string, send_file, redirect, url_for, flash, session
 from dotenv import load_dotenv
 
 from .version import __version__ as version
@@ -18,8 +19,14 @@ auth.create_user_table()
 auth.create_files_table()
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+# quick encrypt/decrypt
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# uploading to storage
+STORAGE_FOLDER = os.path.join(BASE_DIR, 'storage')
+os.makedirs(STORAGE_FOLDER, exist_ok=True)
 
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -29,6 +36,11 @@ HTML_TEMPLATE = '''
 </head>
 <body>
     <h1>Secure File Storage</h1>
+
+    {% if session.username %}
+        <p>Logged in as: <strong>{{ session.username }}</strong></p>
+        <form action="/logout" method="GET"><input type="submit" value="Logout"></form>
+    {% endif %}
 
     <h2>Register</h2>
     <form method="POST" action="/register">
@@ -80,7 +92,7 @@ HTML_TEMPLATE = '''
 
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    return render_template_string(HTML_TEMPLATE, session=session)
 
 
 @app.route('/register', methods=['POST'])
@@ -100,12 +112,18 @@ def register():
 @app.route('/auth', methods=['POST'])
 def authenticate():
     if auth.authenticate_user(request.form['username'], request.form['password']):
+        session['username'] = request.form['username']
         logger.logger.info(f"User authenticated: {request.form['username']}")
         flash('Authenticated successfully')
     else:
-        logger.logger.warning(
-            f"Failed auth attempt: {request.form['username']}")
         flash('Authentication failed')
+    return redirect(url_for('index'))
+
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    flash('Logged out')
     return redirect(url_for('index'))
 
 
@@ -160,14 +178,17 @@ def upload_file():
             flash('User does not exist. Please register first.')
             return redirect(url_for('index'))
 
-    user_folder = os.path.join('storage', username)
+    user_folder = os.path.join(STORAGE_FOLDER, username)
     os.makedirs(user_folder, exist_ok=True)
 
     stored_name = str(uuid.uuid4()) + '.enc'
     stored_path = os.path.join(user_folder, stored_name)
 
-    temp_path = os.path.join(user_folder, 'temp_' + original_filename)
-    file.save(temp_path)
+    import tempfile
+    fd, temp_path = tempfile.mkstemp(
+        dir=user_folder, prefix='upload_', suffix='.tmp')
+    with os.fdopen(fd, 'wb') as tmp:
+        tmp.write(file.read())
 
     encryption.encrypt_file(temp_path, key)
     os.rename(temp_path + '.enc', stored_path)
@@ -190,13 +211,15 @@ def upload_file():
 @app.route('/files/')
 def list_files_query():
     username = request.args.get('username')
-    if not username:
-        return 'Missing username', 400
+    if not username or session.get('username') != username:
+        return 'Access denied', 403
     return list_files(username)
 
 
 @app.route('/files/<username>')
 def list_files(username):
+    if session.get('username') != username:
+        return 'Access denied', 403
     with sqlite3.connect('metadata.db') as conn:
         c = conn.cursor()
         c.execute(
@@ -212,6 +235,22 @@ def list_files(username):
 
 @app.route('/download/<int:file_id>', methods=['GET', 'POST'])
 def download_file(file_id):
+    with sqlite3.connect('metadata.db') as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT username, filename, stored_name FROM files WHERE id=?', (file_id,))
+        row = c.fetchone()
+        if not row:
+            return 'File not found', 404
+        file_owner, original_filename, stored_name = row
+
+    if session.get('username') != file_owner:
+        return 'Access denied', 403
+
+    stored_path = os.path.join(STORAGE_FOLDER, file_owner, stored_name)
+    if not os.path.exists(stored_path):
+        return 'File missing on server', 404
+
     if request.method == 'GET':
         return '''
         <h2>Enter decryption key to download file</h2>
@@ -220,27 +259,16 @@ def download_file(file_id):
             <input type="submit" value="Download">
         </form>
         '''
+
     key = request.form['key'].encode()
-    with sqlite3.connect('metadata.db') as conn:
-        c = conn.cursor()
-        c.execute(
-            'SELECT username, filename, stored_name FROM files WHERE id=?', (file_id,))
-        row = c.fetchone()
-        if not row:
-            return 'File not found', 404
-        username, original_filename, stored_name = row
-
-    stored_path = os.path.join('storage', username, stored_name)
-    if not os.path.exists(stored_path):
-        return 'File missing on server', 404
-
-    temp_dec_path = stored_path.replace('.enc', '.dec')
+    decryption_output = stored_path.replace('.enc', '')
     encryption.decrypt_file(stored_path, key)
-
-    return send_file(temp_dec_path, as_attachment=True, download_name=original_filename)
+    return send_file(decryption_output, as_attachment=True, download_name=original_filename)
 
 
 def main():
+    if sys.prefix == sys.base_prefix:
+        print("Warning: It looks like you're not running inside a virtual environment.")
     app.run(debug=False, host="0.0.0.0", port=5000)
 
 
