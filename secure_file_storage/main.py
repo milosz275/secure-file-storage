@@ -92,11 +92,27 @@ HTML_TEMPLATE = '''
 
 @app.route('/')
 def index():
+    """
+    Render the main page with HTML forms for registration, authentication,
+    encryption/decryption, file upload, and file listing.
+
+    Returns:
+        str: Rendered HTML content.
+    """
     return render_template_string(HTML_TEMPLATE, session=session)
 
 
 @app.route('/register', methods=['POST'])
 def register():
+    """
+    Register a new user with provided username and password.
+
+    Uses the `auth.register_user` function to add the user to the database.
+    Logs the registration event and flashes a success or failure message.
+
+    Returns:
+        werkzeug.wrappers.Response: Redirect response to the main index page.
+    """
     success = auth.register_user(
         request.form['username'], request.form['password'])
     if success:
@@ -111,6 +127,15 @@ def register():
 
 @app.route('/auth', methods=['POST'])
 def authenticate():
+    """
+    Authenticate user credentials from the login form.
+
+    If authentication is successful, sets session username and logs the event.
+    Otherwise, flashes an authentication failure message.
+
+    Returns:
+        werkzeug.wrappers.Response: Redirect response to the main index page.
+    """
     if auth.authenticate_user(request.form['username'], request.form['password']):
         session['username'] = request.form['username']
         logger.logger.info(f"User authenticated: {request.form['username']}")
@@ -122,6 +147,14 @@ def authenticate():
 
 @app.route('/logout')
 def logout():
+    """
+    Log out the current user by clearing the session username.
+
+    Logs the logout event and flashes a logged out message.
+
+    Returns:
+        werkzeug.wrappers.Response: Redirect response to the main index page.
+    """
     user = session.pop('username', None)
     if user:
         logger.logger.info(f"User logged out: {user}")
@@ -131,6 +164,15 @@ def logout():
 
 @app.route('/encrypt', methods=['POST'])
 def encrypt():
+    """
+    Encrypt an uploaded file with the provided key.
+
+    Saves the uploaded file temporarily, encrypts it, logs the event, 
+    and returns the encrypted file as a download.
+
+    Returns:
+        flask.wrappers.Response: Encrypted file sent as attachment.
+    """
     file = request.files['file']
     filename = file.filename or "uploaded_file"
     path = os.path.join(UPLOAD_FOLDER, filename)
@@ -145,6 +187,15 @@ def encrypt():
 
 @app.route('/decrypt', methods=['POST'])
 def decrypt():
+    """
+    Decrypt an uploaded encrypted file with the provided key.
+
+    Saves the uploaded encrypted file temporarily, decrypts it, logs the event,
+    and returns the decrypted file as a download.
+
+    Returns:
+        flask.wrappers.Response: Decrypted file sent as attachment.
+    """
     file = request.files['file']
     filename = file.filename or "uploaded_file.enc"
     path = os.path.join(UPLOAD_FOLDER, filename)
@@ -157,6 +208,20 @@ def decrypt():
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
+    """
+    Handle file upload and encryption for persistent storage.
+
+    GET: Returns a simple HTML form for uploading a file with username and key.
+    POST: 
+        - Verifies user exists,
+        - Saves and encrypts the uploaded file,
+        - Stores metadata in the database,
+        - Logs the upload event,
+        - Redirects to the user's file list page.
+
+    Returns:
+        str or werkzeug.wrappers.Response: HTML form on GET or redirect on POST.
+    """
     if request.method == 'GET':
         return '''
         <h2>Upload & Encrypt File</h2>
@@ -216,6 +281,14 @@ def upload_file():
 
 @app.route('/files/')
 def list_files_query():
+    """
+    Handle file listing requests via query parameter.
+
+    Validates session username matches requested username for security.
+
+    Returns:
+        str or tuple: HTML list of files or error with HTTP status.
+    """
     username = request.args.get('username')
     if not username or session.get('username') != username:
         logger.logger.warning(
@@ -227,6 +300,15 @@ def list_files_query():
 
 @app.route('/files/<username>')
 def list_files(username):
+    """
+    List all files uploaded by a given user.
+
+    Args:
+        username (str): The username whose files are to be listed.
+
+    Returns:
+        str: HTML page listing files with download links.
+    """
     if session.get('username') != username:
         logger.logger.warning(
             f"Unauthorized file list access attempt: session_user={session.get('username')}, requested_user={username}")
@@ -246,6 +328,18 @@ def list_files(username):
 
 @app.route('/download/<int:file_id>', methods=['GET', 'POST'])
 def download_file(file_id):
+    """
+    Allow the file owner to download and decrypt a stored file.
+
+    GET: Presents a form to enter the decryption key.
+    POST: Decrypts the file with the provided key and sends it for download.
+
+    Args:
+        file_id (int): The ID of the file to download.
+
+    Returns:
+        str or flask.wrappers.Response: HTML form or decrypted file download.
+    """
     with sqlite3.connect('metadata.db') as conn:
         c = conn.cursor()
         c.execute(
@@ -292,6 +386,12 @@ def download_file(file_id):
 
 
 def main():
+    """
+    Entry point to start the Flask web application.
+
+    Prints a warning if not running inside a virtual environment,
+    then runs the Flask server on host 0.0.0.0 and port 5000.
+    """
     if sys.prefix == sys.base_prefix:
         print("Warning: It looks like you're not running inside a virtual environment.")
     app.run(debug=False, host="0.0.0.0", port=5000)
