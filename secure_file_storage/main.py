@@ -122,7 +122,9 @@ def authenticate():
 
 @app.route('/logout')
 def logout():
-    session.pop('username', None)
+    user = session.pop('username', None)
+    if user:
+        logger.logger.info(f"User logged out: {user}")
     flash('Logged out')
     return redirect(url_for('index'))
 
@@ -175,6 +177,8 @@ def upload_file():
         c = conn.cursor()
         c.execute('SELECT 1 FROM users WHERE username=?', (username,))
         if not c.fetchone():
+            logger.logger.warning(
+                f"Upload attempt by unknown user: {username}")
             flash('User does not exist. Please register first.')
             return redirect(url_for('index'))
 
@@ -204,6 +208,8 @@ def upload_file():
         ''', (username, original_filename, stored_name, file_hash))
         conn.commit()
 
+    logger.logger.info(
+        f'File uploaded and encrypted: user={username}, file="{original_filename}", stored_as={stored_name}')
     flash(f'File "{original_filename}" uploaded and encrypted successfully.')
     return redirect(url_for('list_files', username=username))
 
@@ -212,13 +218,18 @@ def upload_file():
 def list_files_query():
     username = request.args.get('username')
     if not username or session.get('username') != username:
+        logger.logger.warning(
+            f"Unauthorized file list access attempt: session_user={session.get('username')}, requested_user={username}")
         return 'Access denied', 403
+    logger.logger.info(f"Listing files for user: {username}")
     return list_files(username)
 
 
 @app.route('/files/<username>')
 def list_files(username):
     if session.get('username') != username:
+        logger.logger.warning(
+            f"Unauthorized file list access attempt: session_user={session.get('username')}, requested_user={username}")
         return 'Access denied', 403
     with sqlite3.connect('metadata.db') as conn:
         c = conn.cursor()
@@ -241,14 +252,19 @@ def download_file(file_id):
             'SELECT username, filename, stored_name FROM files WHERE id=?', (file_id,))
         row = c.fetchone()
         if not row:
+            logger.logger.warning(
+                f"Download attempt for non-existent file_id={file_id}")
             return 'File not found', 404
         file_owner, original_filename, stored_name = row
 
     if session.get('username') != file_owner:
+        logger.logger.warning(
+            f"Unauthorized download attempt: session_user={session.get('username')}, file_owner={file_owner}, file_id={file_id}")
         return 'Access denied', 403
 
     stored_path = os.path.join(STORAGE_FOLDER, file_owner, stored_name)
     if not os.path.exists(stored_path):
+        logger.logger.error(f"Stored file missing on server: {stored_path}")
         return 'File missing on server', 404
 
     if request.method == 'GET':
@@ -261,8 +277,17 @@ def download_file(file_id):
         '''
 
     key = request.form['key'].encode()
-    decryption_output = stored_path.replace('.enc', '')
-    encryption.decrypt_file(stored_path, key)
+    try:
+        decryption_output = stored_path.replace('.enc', '')
+        encryption.decrypt_file(stored_path, key)
+    except Exception as e:
+        logger.logger.warning(
+            f"Decryption failed for user={file_owner}, file_id={file_id}, error={e}")
+        flash("Decryption failed. Please check your key.")
+        return redirect(url_for('download_file', file_id=file_id))
+
+    logger.logger.info(
+        f"File downloaded and decrypted: user={file_owner}, file=\"{original_filename}\", file_id={file_id}")
     return send_file(decryption_output, as_attachment=True, download_name=original_filename)
 
 
