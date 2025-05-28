@@ -1,8 +1,11 @@
 """Main module for Secure File Storage application"""
 
+import os
+import sqlite3
+import uuid
+
 from flask import Flask, request, render_template_string, send_file, redirect, url_for, flash
 from dotenv import load_dotenv
-import os
 
 from .version import __version__ as version
 from .src import auth, encryption, logger, utils
@@ -12,6 +15,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY') or 'fallback_insecure_key'
 
 auth.create_user_table()
+auth.create_files_table()
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -24,6 +28,8 @@ HTML_TEMPLATE = '''
     <title>Secure File Storage</title>
 </head>
 <body>
+    <h1>Secure File Storage</h1>
+
     <h2>Register</h2>
     <form method="POST" action="/register">
         Username: <input name="username" type="text"><br>
@@ -38,20 +44,34 @@ HTML_TEMPLATE = '''
         <input type="submit" value="Login">
     </form>
 
-    <h2>Encrypt File</h2>
+    <h2>Quick Encrypt & Download</h2>
     <form method="POST" action="/encrypt" enctype="multipart/form-data">
         Username: <input name="username" type="text"><br>
         Key: <input name="key" type="text"><br>
         File: <input type="file" name="file"><br>
-        <input type="submit" value="Encrypt">
+        <input type="submit" value="Encrypt Now">
     </form>
 
-    <h2>Decrypt File</h2>
+    <h2>Quick Decrypt & Download</h2>
     <form method="POST" action="/decrypt" enctype="multipart/form-data">
         Username: <input name="username" type="text"><br>
         Key: <input name="key" type="text"><br>
         File: <input type="file" name="file"><br>
-        <input type="submit" value="Decrypt">
+        <input type="submit" value="Decrypt Now">
+    </form>
+
+    <h2>Upload File to Storage</h2>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        Username: <input name="username" type="text"><br>
+        Key: <input name="key" type="text"><br>
+        File: <input type="file" name="file"><br>
+        <input type="submit" value="Upload & Encrypt">
+    </form>
+
+    <h2>View Your Stored Files</h2>
+    <form method="GET" action="/files/">
+        Username: <input name="username" type="text"><br>
+        <input type="submit" value="List My Files">
     </form>
 </body>
 </html>
@@ -65,9 +85,15 @@ def index():
 
 @app.route('/register', methods=['POST'])
 def register():
-    auth.register_user(request.form['username'], request.form['password'])
-    logger.logger.info(f"New user registered: {request.form['username']}")
-    flash('User registered successfully')
+    success = auth.register_user(
+        request.form['username'], request.form['password'])
+    if success:
+        logger.logger.info(f"New user registered: {request.form['username']}")
+        flash('User registered successfully')
+    else:
+        logger.logger.warning(
+            f"Registration failed: username already exists ({request.form['username']})")
+        flash('Username already exists. Please choose another one.')
     return redirect(url_for('index'))
 
 
@@ -109,8 +135,113 @@ def decrypt():
     return send_file(original_path, as_attachment=True)
 
 
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'GET':
+        return '''
+        <h2>Upload & Encrypt File</h2>
+        <form method="POST" enctype="multipart/form-data">
+            Username: <input name="username" type="text"><br>
+            Key: <input name="key" type="text"><br>
+            File: <input type="file" name="file"><br>
+            <input type="submit" value="Upload">
+        </form>
+        '''
+
+    username = request.form['username']
+    key = request.form['key'].encode()
+    file = request.files['file']
+    original_filename = file.filename or "uploaded_file"
+
+    with sqlite3.connect('metadata.db') as conn:
+        c = conn.cursor()
+        c.execute('SELECT 1 FROM users WHERE username=?', (username,))
+        if not c.fetchone():
+            flash('User does not exist. Please register first.')
+            return redirect(url_for('index'))
+
+    user_folder = os.path.join('storage', username)
+    os.makedirs(user_folder, exist_ok=True)
+
+    stored_name = str(uuid.uuid4()) + '.enc'
+    stored_path = os.path.join(user_folder, stored_name)
+
+    temp_path = os.path.join(user_folder, 'temp_' + original_filename)
+    file.save(temp_path)
+
+    encryption.encrypt_file(temp_path, key)
+    os.rename(temp_path + '.enc', stored_path)
+    os.remove(temp_path)
+
+    file_hash = utils.hash_file(stored_path)
+
+    with sqlite3.connect('metadata.db') as conn:
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO files (username, filename, stored_name, hash) 
+            VALUES (?, ?, ?, ?)
+        ''', (username, original_filename, stored_name, file_hash))
+        conn.commit()
+
+    flash(f'File "{original_filename}" uploaded and encrypted successfully.')
+    return redirect(url_for('list_files', username=username))
+
+
+@app.route('/files/')
+def list_files_query():
+    username = request.args.get('username')
+    if not username:
+        return 'Missing username', 400
+    return list_files(username)
+
+
+@app.route('/files/<username>')
+def list_files(username):
+    with sqlite3.connect('metadata.db') as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT id, filename, uploaded_at FROM files WHERE username=?', (username,))
+        files = c.fetchall()
+    file_list_html = '<h2>Files for user: {}</h2><ul>'.format(username)
+    for f in files:
+        file_list_html += f'<li>{f[1]} (uploaded: {f[2]}) - <a href="/download/{f[0]}">Download/Decrypt</a></li>'
+    file_list_html += '</ul>'
+    file_list_html += '<a href="/">Back to main</a>'
+    return file_list_html
+
+
+@app.route('/download/<int:file_id>', methods=['GET', 'POST'])
+def download_file(file_id):
+    if request.method == 'GET':
+        return '''
+        <h2>Enter decryption key to download file</h2>
+        <form method="POST">
+            Key: <input name="key" type="text"><br>
+            <input type="submit" value="Download">
+        </form>
+        '''
+    key = request.form['key'].encode()
+    with sqlite3.connect('metadata.db') as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT username, filename, stored_name FROM files WHERE id=?', (file_id,))
+        row = c.fetchone()
+        if not row:
+            return 'File not found', 404
+        username, original_filename, stored_name = row
+
+    stored_path = os.path.join('storage', username, stored_name)
+    if not os.path.exists(stored_path):
+        return 'File missing on server', 404
+
+    temp_dec_path = stored_path.replace('.enc', '.dec')
+    encryption.decrypt_file(stored_path, key)
+
+    return send_file(temp_dec_path, as_attachment=True, download_name=original_filename)
+
+
 def main():
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5000)
 
 
 if __name__ == '__main__':
