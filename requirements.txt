@@ -2,7 +2,14 @@
 setuptools
 wheel
 twine
-pytest
 pyinstaller
 build
 toml
+
+# Secure File Storage
+bcrypt
+cryptography
+loguru
+pytest
+flask
+python-dotenv

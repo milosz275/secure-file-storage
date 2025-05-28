@@ -1,0 +1,12 @@
+services:
+  secure-storage:
+    build: .
+    volumes:
+      - .:/app
+      - ./uploads:/uploads
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    stdin_open: true
+    tty: true

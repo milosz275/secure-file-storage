@@ -161,3 +161,14 @@ cython_debug/
 
 # VS Code
 .vscode/
+
+# Notes
+.notes/
+
+# Secure File Storage
+logs/
+encrypted/
+uploads/
+*.db
+*.enc
+.env

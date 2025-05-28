@@ -1,48 +1,53 @@
-[![Build](https://github.com/mldxo/python-package-template/actions/workflows/python-app.yml/badge.svg)](https://github.com/mldxo/python-package-template/actions/workflows/python-app.yml)
-[![CodeQL](https://github.com/mldxo/python-package-template/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/mldxo/python-package-template/actions/workflows/github-code-scanning/codeql)
+# Secure File Storage
 
-# Python Package Template
+[![Build](https://github.com/milosz275/secure-file-storage/actions/workflows/python-app.yml/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/python-app.yml)
+[![CodeQL](https://github.com/milosz275/secure-file-storage/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/milosz275/secure-file-storage/actions/workflows/github-code-scanning/codeql)
 
-Template of Python project wrapped as package that can be easily uploaded to PyPi
-- [Github](https://github.com/mldxo/python-package-template)
-- [PyPi](https://pypi.org/project/python-package-template-mldxo)
+Secure File Storage is a secure, encrypted file storage solution developed in Python. It combines strong encryption, modular architecture, logging and basic access control.
 
-## Getting Started
+- [Github](https://github.com/milosz275/secure-file-storage)
+- [PyPi](https://pypi.org/project/secure-file-storage-milosz275)
 
-To use this template click "Use this template" and create a new repository or open the template in a codespace [or use this template here](https://github.com/new?template_name=python-package-template&template_owner=mldxo)
+## Features
+
+- AES-256 encryption for file storage
+- User authentication with hashed passwords
+- Encrypted metadata storage using SQLite
+- Access logs (who accessed which file and when)
+- Containerized deployment
+- CI/CD pipeline with linting and tests (GitHub Actions)
+
+## Security Principles
+
+- Confidentiality: AES encryption
+- Integrity: file hashing and verification
+- Accountability: access logs
+- Compliance: inspired by ISO27001 & GDPR concepts
+
+## DevOps
+
+- Docker for reproducibility
+- Pytest unit tests
+- CI/CD with GitHub Actions
 
 ## Usage
 
-Create virtual environment and install dependencies:
+Access web interface at `http://localhost:5000`
+
+### Docker
 
 ```bash
+docker-compose up
+```
+
+### Manual
+
+```bash
+git clone https://github.com/milosz275/secure-file-storage.git
+cd secure-file-storage
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-```
-
-After that you would adapt the code and continue when the project is ready to be published. Build the package using:
-
-```bash
-python setup.py sdist bdist_wheel
-```
-
-Test compiled package locally using:
-
-```bash
-pip install dist/package-xx.whl
-```
-
-Before publishing to PyPi create account and get API key.
-Save API key in your session using:
-
-```bash
-export TWINE_USERNAME=__token__
-export TWINE_PASSWORD=$actual_token
-```
-
-Publish the package to PyPi:
-
-```bash
-twine upload dist/*
+pip install --upgrade pip
+python3 -m secure_file_storage.main
 ```
