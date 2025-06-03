@@ -168,7 +168,7 @@ def encrypt():
     """
     Encrypt an uploaded file with the provided key.
 
-    Saves the uploaded file temporarily, encrypts it, logs the event, 
+    Saves the uploaded file temporarily, encrypts it, logs the event,
     and returns the encrypted file as a download.
 
     Returns:
@@ -177,7 +177,7 @@ def encrypt():
     file = request.files['file']
     filename = secure_filename(file.filename or "uploaded_file")
     path = os.path.normpath(os.path.join(UPLOAD_FOLDER, filename))
-    if not path.startswith(UPLOAD_FOLDER):
+    if os.path.commonpath([UPLOAD_FOLDER, path]) != UPLOAD_FOLDER:
         raise ValueError("Invalid file path")
     file.save(path)
     encryption.encrypt_file(path, request.form['key'].encode())
@@ -207,7 +207,7 @@ def decrypt():
         raise Exception("Invalid file path")
     file.save(path)
     encryption.decrypt_file(path, request.form['key'].encode())
-    original_path = os.path.normpath(path.replace('.enc', ''))
+    original_path = os.path.normpath(os.path.splitext(path)[0])
     if not original_path.startswith(UPLOAD_FOLDER):
         logger.logger.warning(f"Unauthorized file path: {original_path}")
         raise Exception("Invalid file path")
@@ -221,7 +221,7 @@ def upload_file():
     Handle file upload and encryption for persistent storage.
 
     GET: Returns a simple HTML form for uploading a file with username and key.
-    POST: 
+    POST:
         - Verifies user exists,
         - Saves and encrypts the uploaded file,
         - Stores metadata in the database,
@@ -287,7 +287,7 @@ def upload_file():
     with sqlite3.connect('metadata.db') as conn:
         c = conn.cursor()
         c.execute('''
-            INSERT INTO files (username, filename, stored_name, hash) 
+            INSERT INTO files (username, filename, stored_name, hash)
             VALUES (?, ?, ?, ?)
         ''', (username, original_filename, stored_name, file_hash))
         conn.commit()
