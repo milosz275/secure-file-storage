@@ -7,6 +7,7 @@ import uuid
 
 from flask import Flask, request, render_template_string, send_file, redirect, url_for, flash, session
 from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
 
 from .version import __version__ as version
 from .src import auth, encryption, logger, utils
@@ -167,15 +168,17 @@ def encrypt():
     """
     Encrypt an uploaded file with the provided key.
 
-    Saves the uploaded file temporarily, encrypts it, logs the event, 
+    Saves the uploaded file temporarily, encrypts it, logs the event,
     and returns the encrypted file as a download.
 
     Returns:
         flask.wrappers.Response: Encrypted file sent as attachment.
     """
     file = request.files['file']
-    filename = file.filename or "uploaded_file"
-    path = os.path.join(UPLOAD_FOLDER, filename)
+    filename = secure_filename(file.filename or "uploaded_file")
+    path = os.path.normpath(os.path.join(UPLOAD_FOLDER, filename))
+    if os.path.commonpath([UPLOAD_FOLDER, path]) != UPLOAD_FOLDER:
+        raise ValueError("Invalid file path")
     file.save(path)
     encryption.encrypt_file(path, request.form['key'].encode())
     encrypted_path = path + '.enc'
@@ -197,11 +200,17 @@ def decrypt():
         flask.wrappers.Response: Decrypted file sent as attachment.
     """
     file = request.files['file']
-    filename = file.filename or "uploaded_file.enc"
-    path = os.path.join(UPLOAD_FOLDER, filename)
+    filename = secure_filename(file.filename or "uploaded_file.enc")
+    path = os.path.normpath(os.path.join(UPLOAD_FOLDER, filename))
+    if not path.startswith(UPLOAD_FOLDER):
+        logger.logger.warning(f"Unauthorized file path: {path}")
+        raise Exception("Invalid file path")
     file.save(path)
     encryption.decrypt_file(path, request.form['key'].encode())
-    original_path = path.replace('.enc', '')
+    original_path = os.path.normpath(os.path.splitext(path)[0])
+    if not original_path.startswith(UPLOAD_FOLDER):
+        logger.logger.warning(f"Unauthorized file path: {original_path}")
+        raise Exception("Invalid file path")
     logger.logger.info(f"{request.form['username']} decrypted {filename}")
     return send_file(original_path, as_attachment=True)
 
@@ -212,7 +221,7 @@ def upload_file():
     Handle file upload and encryption for persistent storage.
 
     GET: Returns a simple HTML form for uploading a file with username and key.
-    POST: 
+    POST:
         - Verifies user exists,
         - Saves and encrypts the uploaded file,
         - Stores metadata in the database,
@@ -234,6 +243,11 @@ def upload_file():
         '''
 
     username = request.form['username']
+    if not username.isalnum():
+        logger.logger.warning(f"Invalid username provided: {username}")
+        flash('Invalid username. Please use only alphanumeric characters.')
+        return redirect(url_for('index'))
+
     key = request.form['key'].encode()
     file = request.files['file']
     original_filename = file.filename or "uploaded_file"
@@ -247,7 +261,12 @@ def upload_file():
             flash('User does not exist. Please register first.')
             return redirect(url_for('index'))
 
-    user_folder = os.path.join(STORAGE_FOLDER, username)
+    user_folder = os.path.normpath(os.path.join(STORAGE_FOLDER, username))
+    if not user_folder.startswith(STORAGE_FOLDER):
+        logger.logger.warning(
+            f"Path traversal attempt detected for user: {username}")
+        flash('Invalid username. Path traversal is not allowed.')
+        return redirect(url_for('index'))
     os.makedirs(user_folder, exist_ok=True)
 
     stored_name = str(uuid.uuid4()) + '.enc'
@@ -268,7 +287,7 @@ def upload_file():
     with sqlite3.connect('metadata.db') as conn:
         c = conn.cursor()
         c.execute('''
-            INSERT INTO files (username, filename, stored_name, hash) 
+            INSERT INTO files (username, filename, stored_name, hash)
             VALUES (?, ?, ?, ?)
         ''', (username, original_filename, stored_name, file_hash))
         conn.commit()
