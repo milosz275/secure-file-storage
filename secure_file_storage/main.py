@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 
 from .version import __version__ as version
-from .src import auth, encryption, logger, utils
+from .src import auth, encryption, utils
+from .src.logger import logger
 
 load_dotenv()
 app = Flask(__name__)
@@ -65,10 +66,10 @@ def register():
     success = auth.register_user(
         request.form['username'], request.form['password'])
     if success:
-        logger.logger.info(f"New user registered: {request.form['username']}")
+        logger.info(f"New user registered: {request.form['username']}")
         flash('User registered successfully')
     else:
-        logger.logger.warning(
+        logger.warning(
             f"Registration failed: username already exists ({request.form['username']})")
         flash('Username already exists. Please choose another one.')
     return redirect(url_for('index'))
@@ -87,7 +88,7 @@ def authenticate():
     """
     if auth.authenticate_user(request.form['username'], request.form['password']):
         session['username'] = request.form['username']
-        logger.logger.info(f"User authenticated: {request.form['username']}")
+        logger.info(f"User authenticated: {request.form['username']}")
         flash('Authenticated successfully')
     else:
         flash('Authentication failed')
@@ -106,7 +107,7 @@ def logout():
     """
     user = session.pop('username', None)
     if user:
-        logger.logger.info(f"User logged out: {user}")
+        logger.info(f"User logged out: {user}")
     flash('Logged out')
     return redirect(url_for('index'))
 
@@ -131,7 +132,7 @@ def encrypt():
     encryption.encrypt_file(path, request.form['key'].encode())
     encrypted_path = path + '.enc'
     h = utils.hash_file(encrypted_path)
-    logger.logger.info(
+    logger.info(
         f"{request.form['username']} encrypted {filename}, hash: {h}")
     return send_file(encrypted_path, as_attachment=True)
 
@@ -151,15 +152,15 @@ def decrypt():
     filename = secure_filename(file.filename or "uploaded_file.enc")
     path = os.path.normpath(os.path.join(UPLOAD_FOLDER, filename))
     if not path.startswith(UPLOAD_FOLDER):
-        logger.logger.warning(f"Unauthorized file path: {path}")
+        logger.warning(f"Unauthorized file path: {path}")
         raise Exception("Invalid file path")
     file.save(path)
     encryption.decrypt_file(path, request.form['key'].encode())
     original_path = os.path.normpath(os.path.splitext(path)[0])
     if not original_path.startswith(UPLOAD_FOLDER):
-        logger.logger.warning(f"Unauthorized file path: {original_path}")
+        logger.warning(f"Unauthorized file path: {original_path}")
         raise Exception("Invalid file path")
-    logger.logger.info(f"{request.form['username']} decrypted {filename}")
+    logger.info(f"{request.form['username']} decrypted {filename}")
     return send_file(original_path, as_attachment=True)
 
 
@@ -184,7 +185,7 @@ def upload_file():
 
     username = request.form['username']
     if not username.isalnum():
-        logger.logger.warning(f"Invalid username provided: {username}")
+        logger.warning(f"Invalid username provided: {username}")
         flash('Invalid username. Please use only alphanumeric characters.')
         return redirect(url_for('index'))
 
@@ -196,14 +197,14 @@ def upload_file():
         c = conn.cursor()
         c.execute('SELECT 1 FROM users WHERE username=?', (username,))
         if not c.fetchone():
-            logger.logger.warning(
+            logger.warning(
                 f"Upload attempt by unknown user: {username}")
             flash('User does not exist. Please register first.')
             return redirect(url_for('index'))
 
     user_folder = os.path.normpath(os.path.join(STORAGE_FOLDER, username))
     if not user_folder.startswith(STORAGE_FOLDER):
-        logger.logger.warning(
+        logger.warning(
             f"Path traversal attempt detected for user: {username}")
         flash('Invalid username. Path traversal is not allowed.')
         return redirect(url_for('index'))
@@ -232,7 +233,7 @@ def upload_file():
         ''', (username, original_filename, stored_name, file_hash))
         conn.commit()
 
-    logger.logger.info(
+    logger.info(
         f'File uploaded and encrypted: user={username}, file="{original_filename}", stored_as={stored_name}')
     flash(f'File "{original_filename}" uploaded and encrypted successfully.')
     return redirect(url_for('list_files', username=username))
@@ -255,14 +256,14 @@ def delete_file(file_id):
             'SELECT username, stored_name FROM files WHERE id=?', (file_id,))
         row = c.fetchone()
         if not row:
-            logger.logger.warning(
+            logger.warning(
                 f"Delete attempt for non-existent file_id={file_id}")
             flash('File not found.')
             return redirect(url_for('index'))
         file_owner, stored_name = row
 
     if session.get('username') != file_owner:
-        logger.logger.warning(
+        logger.warning(
             f"Unauthorized delete attempt: session_user={session.get('username')}, file_owner={file_owner}, file_id={file_id}")
         return 'Access denied', 403
 
@@ -274,11 +275,11 @@ def delete_file(file_id):
             c = conn.cursor()
             c.execute('DELETE FROM files WHERE id=?', (file_id,))
             conn.commit()
-        logger.logger.info(
+        logger.info(
             f"File deleted: user={file_owner}, file_id={file_id}, stored_name={stored_name}")
         flash('File deleted successfully.')
     except Exception as e:
-        logger.logger.error(
+        logger.error(
             f"Error deleting file: user={file_owner}, file_id={file_id}, error={e}")
         flash('Error deleting file.')
     return redirect(url_for('list_files', username=file_owner))
@@ -296,10 +297,10 @@ def list_files_query():
     """
     username = request.args.get('username')
     if not username or session.get('username') != username:
-        logger.logger.warning(
+        logger.warning(
             f"Unauthorized file list access attempt: session_user={session.get('username')}, requested_user={username}")
         return 'Access denied', 403
-    logger.logger.info(f"Listing files for user: {username}")
+    logger.info(f"Listing files for user: {username}")
     return list_files(username)
 
 
@@ -315,7 +316,7 @@ def list_files(username):
         str: HTML page listing files with download and delete links.
     """
     if session.get('username') != username:
-        logger.logger.warning(
+        logger.warning(
             f"Unauthorized file list access attempt: session_user={session.get('username')}, requested_user={username}")
         return 'Access denied', 403
     with sqlite3.connect('metadata.db') as conn:
@@ -359,19 +360,19 @@ def download_file(file_id):
             'SELECT username, filename, stored_name FROM files WHERE id=?', (file_id,))
         row = c.fetchone()
         if not row:
-            logger.logger.warning(
+            logger.warning(
                 f"Download attempt for non-existent file_id={file_id}")
             return 'File not found', 404
         file_owner, original_filename, stored_name = row
 
     if session.get('username') != file_owner:
-        logger.logger.warning(
+        logger.warning(
             f"Unauthorized download attempt: session_user={session.get('username')}, file_owner={file_owner}, file_id={file_id}")
         return 'Access denied', 403
 
     stored_path = os.path.join(STORAGE_FOLDER, file_owner, stored_name)
     if not os.path.exists(stored_path):
-        logger.logger.error(f"Stored file missing on server: {stored_path}")
+        logger.error(f"Stored file missing on server: {stored_path}")
         return 'File missing on server', 404
 
     if request.method == 'GET':
@@ -382,12 +383,12 @@ def download_file(file_id):
         decryption_output = stored_path.replace('.enc', '')
         encryption.decrypt_file(stored_path, key)
     except Exception as e:
-        logger.logger.warning(
+        logger.warning(
             f"Decryption failed for user={file_owner}, file_id={file_id}, error={e}")
         flash("Decryption failed. Please check your key.")
         return redirect(url_for('download_file', file_id=file_id))
 
-    logger.logger.info(
+    logger.info(
         f"File downloaded and decrypted: user={file_owner}, file=\"{original_filename}\", file_id={file_id}")
     return send_file(decryption_output, as_attachment=True, download_name=original_filename)
 
