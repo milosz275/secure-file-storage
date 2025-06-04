@@ -29,67 +29,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 STORAGE_FOLDER = os.path.join(BASE_DIR, 'storage')
 os.makedirs(STORAGE_FOLDER, exist_ok=True)
 
-HTML_TEMPLATE = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Secure File Storage</title>
-</head>
-<body>
-    <h1>Secure File Storage</h1>
-
-    {% if session.username %}
-        <p>Logged in as: <strong>{{ session.username }}</strong></p>
-        <form action="/logout" method="GET"><input type="submit" value="Logout"></form>
-    {% endif %}
-
-    <h2>Register</h2>
-    <form method="POST" action="/register">
-        Username: <input name="username" type="text"><br>
-        Password: <input name="password" type="password"><br>
-        <input type="submit" value="Register">
-    </form>
-
-    <h2>Authenticate</h2>
-    <form method="POST" action="/auth">
-        Username: <input name="username" type="text"><br>
-        Password: <input name="password" type="password"><br>
-        <input type="submit" value="Login">
-    </form>
-
-    <h2>Quick Encrypt & Download</h2>
-    <form method="POST" action="/encrypt" enctype="multipart/form-data">
-        Username: <input name="username" type="text"><br>
-        Key: <input name="key" type="text"><br>
-        File: <input type="file" name="file"><br>
-        <input type="submit" value="Encrypt Now">
-    </form>
-
-    <h2>Quick Decrypt & Download</h2>
-    <form method="POST" action="/decrypt" enctype="multipart/form-data">
-        Username: <input name="username" type="text"><br>
-        Key: <input name="key" type="text"><br>
-        File: <input type="file" name="file"><br>
-        <input type="submit" value="Decrypt Now">
-    </form>
-
-    <h2>Upload File to Storage</h2>
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-        Username: <input name="username" type="text"><br>
-        Key: <input name="key" type="text"><br>
-        File: <input type="file" name="file"><br>
-        <input type="submit" value="Upload & Encrypt">
-    </form>
-
-    <h2>View Your Stored Files</h2>
-    <form method="GET" action="/files/">
-        Username: <input name="username" type="text"><br>
-        <input type="submit" value="List My Files">
-    </form>
-</body>
-</html>
-'''
-
 
 @app.route('/')
 def index():
