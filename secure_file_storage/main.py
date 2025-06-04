@@ -5,7 +5,7 @@ import sys
 import sqlite3
 import uuid
 
-from flask import Flask, request, render_template, send_file, redirect, url_for, flash, session
+from flask import Flask, request, render_template, send_file, jsonify, redirect, url_for, flash, session
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 
@@ -390,6 +390,26 @@ def download_file(file_id):
     logger.logger.info(
         f"File downloaded and decrypted: user={file_owner}, file=\"{original_filename}\", file_id={file_id}")
     return send_file(decryption_output, as_attachment=True, download_name=original_filename)
+
+
+@app.route('/.well-known/appspecific/com.chrome.devtools.json')
+def serve_devtools_config():
+    """
+    Serve a Chrome DevTools configuration JSON.
+
+    This endpoint provides a JSON object with metadata for Chrome DevTools integration,
+    such as the app name, version, frontend URL, and WebSocket debugger URL.
+    It can be used by tools or browsers to discover debugging endpoints.
+
+    Returns:
+        flask.wrappers.Response: JSON response containing DevTools configuration.
+    """
+    return jsonify({
+        "name": "My Flask App",
+        "version": "1.0",
+        "devtoolsFrontendUrl": "http://localhost:5000",
+        "webSocketDebuggerUrl": "ws://localhost:5000/devtools"
+    })
 
 
 def main():
