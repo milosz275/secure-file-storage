@@ -5,7 +5,7 @@ import sys
 import sqlite3
 import uuid
 
-from flask import Flask, request, render_template_string, send_file, redirect, url_for, flash, session
+from flask import Flask, request, render_template, send_file, redirect, url_for, flash, session
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 
@@ -100,7 +100,7 @@ def index():
     Returns:
         str: Rendered HTML content.
     """
-    return render_template_string(HTML_TEMPLATE, session=session)
+    return render_template('index.html', session=session)
 
 
 @app.route('/version', methods=['GET'])
@@ -241,15 +241,7 @@ def upload_file():
         str or werkzeug.wrappers.Response: HTML form on GET or redirect on POST.
     """
     if request.method == 'GET':
-        return '''
-        <h2>Upload & Encrypt File</h2>
-        <form method="POST" enctype="multipart/form-data">
-            Username: <input name="username" type="text"><br>
-            Key: <input name="key" type="text"><br>
-            File: <input type="file" name="file"><br>
-            <input type="submit" value="Upload">
-        </form>
-        '''
+        return render_template('upload.html')
 
     username = request.form['username']
     if not username.isalnum():
@@ -444,13 +436,7 @@ def download_file(file_id):
         return 'File missing on server', 404
 
     if request.method == 'GET':
-        return '''
-        <h2>Enter decryption key to download file</h2>
-        <form method="POST">
-            Key: <input name="key" type="text"><br>
-            <input type="submit" value="Download">
-        </form>
-        '''
+        return render_template('download_key_form.html')
 
     key = request.form['key'].encode()
     try:
