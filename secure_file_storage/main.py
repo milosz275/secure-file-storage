@@ -103,6 +103,15 @@ def index():
     return render_template_string(HTML_TEMPLATE, session=session)
 
 
+@app.route('/version', methods=['GET'])
+def get_version():
+    """
+    Returns:
+        str: Secure File Storage version (e.g. "0.2.0")
+    """
+    return str(version)
+
+
 @app.route('/register', methods=['POST'])
 def register():
     """
@@ -298,6 +307,52 @@ def upload_file():
     return redirect(url_for('list_files', username=username))
 
 
+@app.route('/delete/<int:file_id>', methods=['POST'])
+def delete_file(file_id):
+    """
+    Delete a file asset for the authenticated user.
+
+    Args:
+        file_id (int): The ID of the file to delete.
+
+    Returns:
+        werkzeug.wrappers.Response: Redirects to the user's file list.
+    """
+    with sqlite3.connect('metadata.db') as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT username, stored_name FROM files WHERE id=?', (file_id,))
+        row = c.fetchone()
+        if not row:
+            logger.logger.warning(
+                f"Delete attempt for non-existent file_id={file_id}")
+            flash('File not found.')
+            return redirect(url_for('index'))
+        file_owner, stored_name = row
+
+    if session.get('username') != file_owner:
+        logger.logger.warning(
+            f"Unauthorized delete attempt: session_user={session.get('username')}, file_owner={file_owner}, file_id={file_id}")
+        return 'Access denied', 403
+
+    stored_path = os.path.join(STORAGE_FOLDER, file_owner, stored_name)
+    try:
+        if os.path.exists(stored_path):
+            os.remove(stored_path)
+        with sqlite3.connect('metadata.db') as conn:
+            c = conn.cursor()
+            c.execute('DELETE FROM files WHERE id=?', (file_id,))
+            conn.commit()
+        logger.logger.info(
+            f"File deleted: user={file_owner}, file_id={file_id}, stored_name={stored_name}")
+        flash('File deleted successfully.')
+    except Exception as e:
+        logger.logger.error(
+            f"Error deleting file: user={file_owner}, file_id={file_id}, error={e}")
+        flash('Error deleting file.')
+    return redirect(url_for('list_files', username=file_owner))
+
+
 @app.route('/files/')
 def list_files_query():
     """
@@ -326,7 +381,7 @@ def list_files(username):
         username (str): The username whose files are to be listed.
 
     Returns:
-        str: HTML page listing files with download links.
+        str: HTML page listing files with download and delete links.
     """
     if session.get('username') != username:
         logger.logger.warning(
@@ -339,7 +394,15 @@ def list_files(username):
         files = c.fetchall()
     file_list_html = '<h2>Files for user: {}</h2><ul>'.format(username)
     for f in files:
-        file_list_html += f'<li>{f[1]} (uploaded: {f[2]}) - <a href="/download/{f[0]}">Download/Decrypt</a></li>'
+        file_list_html += f'''
+        <li>
+            {f[1]} (uploaded: {f[2]})
+            - <a href="/download/{f[0]}">Download/Decrypt</a>
+            <form action="/delete/{f[0]}" method="POST" style="display:inline;">
+                <button type="submit" onclick="return confirm('Are you sure you want to delete this file?');">Delete</button>
+            </form>
+        </li>
+        '''
     file_list_html += '</ul>'
     file_list_html += '<a href="/">Back to main</a>'
     return file_list_html
