@@ -6,11 +6,26 @@
 </head>
 
 <body>
-    <h1>Secure File Storage</h1>
+    <h1 id="main-header">
+        Secure File Storage
+        {% if session.version %}
+        {{ session.version }}
+        {% endif %}
+    </h1>
 
     {% if session.username %}
     <p>Logged in as: <strong>{{ session.username }}</strong></p>
     <form action="/logout" method="GET"><input type="submit" value="Logout"></form>
+    {% endif %}
+
+    {% if session.auth_fail %}
+    <p style="color: red;"><strong>{{ session.auth_fail }}</strong></p>
+    {% set _ = session.pop('auth_fail') %}
+    {% endif %}
+
+    {% if session.register_fail %}
+    <p style="color: red;"><strong>{{ session.register_fail }}</strong></p>
+    {% set _ = session.pop('register_fail') %}
     {% endif %}
 
     <h2>Register</h2>
@@ -29,7 +44,6 @@
 
     <h2>Quick Encrypt & Download</h2>
     <form method="POST" action="/encrypt" enctype="multipart/form-data">
-        Username: <input name="username" type="text"><br>
         Key: <input name="key" type="text"><br>
         File: <input type="file" name="file"><br>
         <input type="submit" value="Encrypt Now">
@@ -37,7 +51,6 @@
 
     <h2>Quick Decrypt & Download</h2>
     <form method="POST" action="/decrypt" enctype="multipart/form-data">
-        Username: <input name="username" type="text"><br>
         Key: <input name="key" type="text"><br>
         File: <input type="file" name="file"><br>
         <input type="submit" value="Decrypt Now">
@@ -45,7 +58,6 @@
 
     <h2>Upload File to Storage</h2>
     <form method="POST" action="/upload" enctype="multipart/form-data">
-        Username: <input name="username" type="text"><br>
         Key: <input name="key" type="text"><br>
         File: <input type="file" name="file"><br>
         <input type="submit" value="Upload & Encrypt">
@@ -53,7 +65,6 @@
 
     <h2>View Your Stored Files</h2>
     <form method="GET" action="/files/">
-        Username: <input name="username" type="text"><br>
         <input type="submit" value="List My Files">
     </form>
 </body>
