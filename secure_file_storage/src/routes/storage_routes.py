@@ -109,6 +109,9 @@ def upload_file():
 
     key = request.form['key'].encode()
     file = request.files['file']
+    if not file:
+        flash('Cannot upload an empty file.')
+        return redirect(url_for('common.index'))
     original_filename = file.filename or "uploaded_file"
 
     with sqlite3.connect('metadata.db') as conn:
@@ -206,7 +209,7 @@ def delete_file(file_id):
         logger.error(
             f"Error deleting file: user={file_owner}, file_id={file_id}, error={e}")
         flash('Error deleting file.')
-    return redirect(url_for('storage.list_files', username=file_owner))
+    return redirect(url_for('storage.list_files_query'))
 
 
 @stor_bp.route('/files/')
