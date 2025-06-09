@@ -1,4 +1,5 @@
 
+import shutil
 from flask import Blueprint, render_template, session, jsonify
 
 from ...version import __version__ as version
@@ -45,4 +46,22 @@ def serve_devtools_config():
         "version": "1.0",
         "devtoolsFrontendUrl": "http://localhost:5000",
         "webSocketDebuggerUrl": "ws://localhost:5000/devtools"
+    })
+
+@common_bp.route('/space', methods=['GET'])
+def get_space_available():
+    """
+    Returns the total, used, and available disk space (in MB) on the server's filesystem.
+
+    Returns:
+        flask.wrappers.Response: JSON response with total, used, and available space in MB.
+    """
+    total, used, free = shutil.disk_usage("/")
+    total_mb = total // (1024 * 1024)
+    used_mb = used // (1024 * 1024)
+    free_mb = free // (1024 * 1024)
+    return jsonify({
+        "total_mb": total_mb,
+        "used_mb": used_mb,
+        "available_mb": free_mb
     })
