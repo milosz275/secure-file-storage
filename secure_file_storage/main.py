@@ -11,7 +11,9 @@ from .src import auth
 from .src.routes.auth_routes import auth_bp
 from .src.routes.common_routes import common_bp
 from .src.routes.storage_routes import stor_bp
+from .src.setup_env import ensure_env
 
+ensure_env()
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY') or 'fallback_insecure_key'
