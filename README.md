@@ -13,6 +13,19 @@ Secure File Storage is a secure, encrypted file storage solution developed in Py
 - [PyPi](https://pypi.org/project/secure-file-storage-milosz275)
 - [Dockerhub](https://hub.docker.com/repository/docker/mlsh/secure-file-storage/general)
 
+## Table of Contents
+
+- [Secure File Storage](#secure-file-storage)
+- [Features](#features)
+- [Security Principles](#security-principles)
+- [DevOps](#devops)
+- [Usage](#usage)
+  - [Pip package](#pip-package)
+  - [Docker](#docker)
+  - [Manual setup](#manual-setup)
+- [Constraints](#constraints)
+- [License](#license)
+
 ## Features
 
 - AES-256 encryption for secure file storage
@@ -82,3 +95,11 @@ pip install --upgrade pip
 python3 secure_file_storage/src/setup_env.py
 gunicorn --log-level warning -w 4 -b 0.0.0.0:5000 --timeout 120 secure_file_storage.main:app
 ```
+
+## Constraints
+
+The repository does not address a need to create separate databases for dev, prod and other purposes. It should be addressed in next project iterations.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/milosz275/secure-file-storage/blob/main/LICENSE) file for details.
