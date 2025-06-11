@@ -80,5 +80,5 @@ source venv/bin/activate
 pip install -r requirements.txt
 pip install --upgrade pip
 python3 secure_file_storage/src/setup_env.py
-gunicorn --log-level warning -w 4 -b 0.0.0.0:5000 secure_file_storage.main:app
+gunicorn --log-level warning -w 4 -b 0.0.0.0:5000 --timeout 120 secure_file_storage.main:app
 ```
