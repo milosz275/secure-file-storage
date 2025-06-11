@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "secure-file-storage-milosz275"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
   { name="milosz275", email="miloszmaculewicz@gmail.com" },
 ]
