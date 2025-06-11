@@ -33,7 +33,9 @@ def main():
     """
     if sys.prefix == sys.base_prefix:
         print("Warning: It looks like you're not running inside a virtual environment.")
-    app.run(debug=False, host="0.0.0.0", port=5000)
+
+    if "gunicorn" not in os.environ.get("SERVER_SOFTWARE", ""):
+        app.run(debug=False, host="0.0.0.0", port=5000)
 
 
 if __name__ == '__main__':
